@@ -22,14 +22,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.log4j.Logger;
 
 import com.hp.hpl.jena.sparql.vocabulary.FOAF;
 import com.hp.hpl.jena.vocabulary.OWL;
 import com.hp.hpl.jena.vocabulary.VCARD;
 
+import edu.utdallas.cs.stormrider.store.Store;
+import edu.utdallas.cs.stormrider.store.StoreFactory;
+import edu.utdallas.cs.stormrider.store.iterator.impl.NodeAndNeighbor;
 import edu.utdallas.cs.stormrider.util.TwitterConstants;
 import edu.utdallas.cs.stormrider.views.Views;
 import edu.utdallas.cs.stormrider.views.ViewsFactory;
@@ -71,19 +72,22 @@ public class TwitterLoaderSpout implements IRichSpout
     /** The OAuth verified Twitter handle **/
     private Twitter twitter = null ;
     
+    private Store store = null ;
+    
     private Views views = null ;
     
     /** Constructor **/
-    public TwitterLoaderSpout( String viewsConfigFile ) { this( true, viewsConfigFile ) ; }
+    public TwitterLoaderSpout( boolean isReified, String storeConfigFile, String viewsConfigFile ) { this( false, isReified, storeConfigFile, viewsConfigFile ) ; }
 
     /** Constructor **/
-    public TwitterLoaderSpout( boolean isDistributed, String viewsConfigFile ) 
+    public TwitterLoaderSpout( boolean isDistributed, boolean isReified, String storeConfigFile, String viewsConfigFile ) 
     { 
     	this.isDistributed = isDistributed ;
 		twitter = new TwitterFactory().getInstance() ;
 		twitter.setOAuthConsumer( TwitterConstants.CONSUMER_KEY, TwitterConstants.CONSUMER_SECRET ) ;
 		AccessToken atoken = new AccessToken( TwitterConstants.ACCESS_TOKEN, TwitterConstants.ACCESS_TOKEN_SECRET ) ;
 		twitter.setOAuthAccessToken( atoken ) ;
+		this.store = StoreFactory.getJenaHBaseStore( storeConfigFile, isReified ) ;
 		this.views = ViewsFactory.getViews( viewsConfigFile ) ;
     }
     
@@ -114,23 +118,18 @@ public class TwitterLoaderSpout implements IRichSpout
     			emitUserAndTweetInformation( randomUserId ) ;
     			
     			//Emit user-id for updating node-centric view
-    			String tupleType = "node-nv" ;
+    			String tupleType = "nv" ;
     			StringBuilder subject = new StringBuilder( "u-" ) ; subject.append( randomUserId ) ;
     			collector.emit( new Values( tupleType, subject.toString(), "", "" ) ) ;
     			
     			//Emit info for updating landmarks-centric view
-    			if( ( numOfUsers % 100000 ) == 0 )
-    			{
-        			tupleType = "node-lv" ;
-    				Iterator<Result> iterTable = views.getAllRows() ;
-    				while( iterTable.hasNext() )
-    				{
-    					Result row = iterTable.next() ;
-    					Iterator<byte[]> iterAdjList = views.getAdjList( Bytes.toString( row.getRow() ) ) ;
-    					while( iterAdjList.hasNext() )
-    						collector.emit( new Values( tupleType, Bytes.toString( iterAdjList.next() ), "", "" ) ) ;
-    				}
-    			}
+       			tupleType = "nlv" ;
+       			Iterator<NodeAndNeighbor> iterNodesAndNeighbors = store.getAllNodesWithNeighbors( views.getLinkNameAsURI() ) ;
+       			while( iterNodesAndNeighbors.hasNext() )
+       			{
+       				NodeAndNeighbor nodeAndNeighbor = iterNodesAndNeighbors.next() ;
+       				collector.emit( new Values( tupleType, nodeAndNeighbor.getNode(), "", "" ) ) ;
+       			}
     		}
     	}
     	catch( Exception e ) { LOG.info( "Error in retrieving user information", e ) ; }
@@ -146,9 +145,9 @@ public class TwitterLoaderSpout implements IRichSpout
     public void declareOutputFields( OutputFieldsDeclarer declarer ) 
     {
     	declarer.declare( new Fields( "tupleType" ) ) ;
-        declarer.declare( new Fields( "subject" ) ) ;
-        declarer.declare( new Fields( "predicate" ) ) ;
-        declarer.declare( new Fields( "object" ) ) ;
+        declarer.declare( new Fields( "node1" ) ) ;
+        declarer.declare( new Fields( "node2" ) ) ;
+        declarer.declare( new Fields( "node3" ) ) ;
     }
     
     private void emitUserAndTweetInformation( int randomUserId ) throws TwitterException, InterruptedException
