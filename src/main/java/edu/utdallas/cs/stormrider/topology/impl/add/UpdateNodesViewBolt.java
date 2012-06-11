@@ -16,8 +16,11 @@
 
 package edu.utdallas.cs.stormrider.topology.impl.add;
 
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
+import edu.emory.mathcs.backport.java.util.Arrays;
 import edu.utdallas.cs.stormrider.store.Store;
 import edu.utdallas.cs.stormrider.store.StoreFactory;
 import edu.utdallas.cs.stormrider.topology.TopologyException;
@@ -38,9 +41,9 @@ public class UpdateNodesViewBolt implements IRichBolt
 	
 	private Views views = null ;
 	
-	public UpdateNodesViewBolt( String storeConfigFile, String viewsConfigFile ) 
+	public UpdateNodesViewBolt( boolean isReified, String storeConfigFile, String viewsConfigFile ) 
 	{ 
-		store = StoreFactory.getJenaHBaseStore( storeConfigFile ) ;
+		store = StoreFactory.getJenaHBaseStore( storeConfigFile, isReified ) ;
 		views = ViewsFactory.getViews( viewsConfigFile ) ;
 	}
 	
@@ -53,26 +56,56 @@ public class UpdateNodesViewBolt implements IRichBolt
     {
     	try
     	{
-    		if( input.getString( 0 ).equals( "node-nv" ) )
+    		if( input.getString( 0 ).equals( "nv" ) )
     		{
     			String node = input.getString( 1 ) ;
-    			String adjList = store.getAdjacencyList( views.getLinkNameAsURI() ) ;
-    			views.updateAdjacencyListValue( node, adjList ) ;
     			if( !views.getIsLandmark( node ) )
     			{
-    				String[] closestLandmark = BFS( node, adjList ) ;
+    				String adjList = store.getAdjacencyList( node, views.getLinkNameAsURI() ) ;
+    				views.updateAdjacencyListValue( node, adjList ) ;
+    				ClosestLandmark closestLandmark = BFS( node, adjList ) ;
+    				StringBuilder sb = new StringBuilder() ; sb.append( closestLandmark.getDistance() ) ;
     				views.updateIsLandmarkValue( node, "N" ) ;
-    				views.updateDistToClosestLandmarkValue( node, closestLandmark[0] ) ;
-    				views.updateClosestLandmarkValue( node, closestLandmark[1] ) ;
+    				views.updateDistToClosestLandmarkValue( node, sb.toString() ) ;
+    				views.updateClosestLandmarkValue( node, closestLandmark.getLandmark() ) ;
+    				sb = null ; adjList = null ;
     			}
     		}
     	}
         catch( Exception e ) { throw new TopologyException( "Exception in update nodes view bolt:: ", e ) ; }
     }
 
-    private String[] BFS( String node, String adjList )
+    @SuppressWarnings("unchecked")
+	private ClosestLandmark BFS( String node, String adjList )
     {
-    	String[] closestLandmark = new String[2] ;
+		boolean isClosestLandmarkFound = false ;
+    	ClosestLandmark closestLandmark = new ClosestLandmark() ;
+    	
+    	//Number of iterations to perform in BFS
+    	long distance = 1L ;
+		
+    	//Neighbors of nodes that will be processed in this iteration
+		Set<String> setNodes = new LinkedHashSet<String>() ;
+		setNodes.addAll( Arrays.asList( adjList.split( "~" ) ) ) ;
+		
+		while( distance < 15 )
+    	{
+    		for( String neighbor : setNodes )
+    		{
+    			if( views.getIsLandmark( neighbor ) )
+    			{
+    				closestLandmark.setNode( node ) ;
+    				closestLandmark.setDistance( distance ) ;
+    				closestLandmark.setLandmark( neighbor ) ;
+    				isClosestLandmarkFound = true ; break ;
+    			}
+    			else
+    				setNodes.addAll( Arrays.asList( store.getAdjacencyList( neighbor, views.getLinkNameAsURI() ).split( "~" ) ) ) ;
+    			setNodes.remove( neighbor ) ;
+    		}
+    		if( isClosestLandmarkFound ) break ;
+    		distance++ ;
+    	}
     	return closestLandmark ;
     }
     

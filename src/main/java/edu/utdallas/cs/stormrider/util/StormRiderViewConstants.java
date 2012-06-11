@@ -17,9 +17,7 @@
 package edu.utdallas.cs.stormrider.util;
 
 public class StormRiderViewConstants 
-{
-	public static String hbaseConfigFile = "<== location of hbase-site.xml ==>" ;
-	
+{	
     /** A suffix for the nodes view HTable **/
     public static final String nodesViewSuffix = "-NodesView" ;
     
@@ -32,7 +30,7 @@ public class StormRiderViewConstants
 
     public static final String colNodesDistance = "Distance", colNodesNumOfPaths = "Num-Of-Paths", colNodesPaths = "Paths" ;
     
-    public static final String cellDelimiter = "~" ;
+    public static final String cellDelimiter = "&" ;
     
     /** A suffix for the landmarks view HTable **/
     public static final String landmarksViewSuffix = "-LandmarksView" ;

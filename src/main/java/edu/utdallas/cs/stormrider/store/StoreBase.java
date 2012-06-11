@@ -17,6 +17,7 @@
 package edu.utdallas.cs.stormrider.store;
 
 import java.util.Calendar;
+import java.util.Iterator;
 
 import com.hp.hpl.jena.query.Query;
 import com.hp.hpl.jena.query.QueryExecution;
@@ -29,6 +30,8 @@ import com.hp.hpl.jena.rdf.model.ReifiedStatement;
 import com.hp.hpl.jena.rdf.model.Resource;
 import com.hp.hpl.jena.rdf.model.Statement;
 
+import edu.utdallas.cs.stormrider.store.iterator.impl.NodeAndNeighbor;
+import edu.utdallas.cs.stormrider.store.iterator.impl.NodesAndNeighborsIterator;
 import edu.utdallas.cs.stormrider.util.StormRiderConstants;
 import edu.utdallas.cs.stormrider.vocab.STORMRIDER;
 
@@ -72,18 +75,28 @@ public abstract class StoreBase implements Store
 		QueryExecution qExec = QueryExecutionFactory.create( query, model ) ;
 		return qExec.execSelect() ;
 	}
+
+	public Iterator<NodeAndNeighbor> getAllNodesWithNeighbors( String linkNameAsURI )
+	{
+		String queryString =
+		" SELECT ?x ?y " +
+		" WHERE { ?x <" + linkNameAsURI + "> ?y } " ;
+		QueryExecution qExec = QueryExecutionFactory.create( queryString, model ) ;
+		ResultSet rs = qExec.execSelect() ;
+		return new NodesAndNeighborsIterator( rs ) ;
+	}
 	
-	public String getAdjacencyList( String linkNameAsURI )
+	public String getAdjacencyList( String nodeAsURI, String linkNameAsURI )
 	{
 		StringBuilder sbAdjList = new StringBuilder() ;
 		String queryString =
 		" SELECT ?y " +
-		" WHERE { ?x <" + linkNameAsURI + "> ?y } " ;
+		" WHERE { <" + nodeAsURI + "> <" + linkNameAsURI + "> ?y } " ;
 		QueryExecution qExec = QueryExecutionFactory.create( queryString, model ) ;
 		ResultSet rs = qExec.execSelect() ;
 		while( rs.hasNext() )
 		{
-			sbAdjList.append( rs.next().getResource( "?y" ).getLocalName() ) ; sbAdjList.append( "~" ) ;
+			sbAdjList.append( rs.next().getResource( "?y" ) ) ; sbAdjList.append( "~" ) ;
 		}
 		return sbAdjList.toString() ;
 	}

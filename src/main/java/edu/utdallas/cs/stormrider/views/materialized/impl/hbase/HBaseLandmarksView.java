@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.BinaryPrefixComparator;
@@ -60,7 +61,57 @@ public class HBaseLandmarksView extends LandmarksViewBase
 			landmarksTable = conn.createTable( viewName, cols ) ;
 		}		
 	}
+
+	public String getCurrentPaths( String row )
+	{
+		String listOfPaths = null ;
+		try
+		{
+			byte[] colFamilyBytes = Bytes.toBytes( StormRiderViewConstants.colFamNode ), colQualBytes = Bytes.toBytes( StormRiderViewConstants.colNodesPaths ) ;
+			Get res = new Get( Bytes.toBytes( row ) ) ; res.addColumn( colFamilyBytes, colQualBytes ) ;
+			listOfPaths = Bytes.toString( landmarksTable.get( res ).value() ) ;
+		}
+		catch( Exception e ) { throw new MaterializedViewsException( "Exception during retrieval of num of paths to landmark in LandmarksView:: ", e ) ; }
+		return listOfPaths ;
+	}	
+
+	public void updatePathsValue( String row, String value )
+	{
+		try
+		{
+			StringBuilder sbVal = new StringBuilder() ; sbVal.append( getCurrentPaths( row ) ) ; sbVal.append( StormRiderViewConstants.cellDelimiter ) ; sbVal.append( value ) ;
+			byte[] rowBytes = Bytes.toBytes( row ), colFamilyBytes = Bytes.toBytes( StormRiderViewConstants.colFamNode ), colQualBytes = Bytes.toBytes( StormRiderViewConstants.colNodesPaths ), val = Bytes.toBytes( sbVal.toString() ) ;
+			Put update = new Put( rowBytes ) ;
+			update.add( colFamilyBytes, colQualBytes, val ) ;
+			landmarksTable.checkAndPut( rowBytes, colFamilyBytes, colQualBytes, val, update ) ;
+		}
+		catch( Exception e ) { throw new MaterializedViewsException( "Exception during updation of number of paths value in LandmarksView:: ", e ) ; }				
+	}
+
+	public void updateNumOfPathsValue( String row, String value )
+	{
+		try
+		{
+			byte[] rowBytes = Bytes.toBytes( row ), colFamilyBytes = Bytes.toBytes( StormRiderViewConstants.colFamNode ), colQualBytes = Bytes.toBytes( StormRiderViewConstants.colNodesNumOfPaths ), val = Bytes.toBytes( value ) ;
+			Put update = new Put( rowBytes ) ;
+			update.add( colFamilyBytes, colQualBytes, val ) ;
+			landmarksTable.checkAndPut( rowBytes, colFamilyBytes, colQualBytes, val, update ) ;
+		}
+		catch( Exception e ) { throw new MaterializedViewsException( "Exception during updation of number of paths value in LandmarksView:: ", e ) ; }				
+	}
 	
+	public void updateDistanceValue( String row, String value )
+	{
+		try
+		{
+			byte[] rowBytes = Bytes.toBytes( row ), colFamilyBytes = Bytes.toBytes( StormRiderViewConstants.colFamNode ), colQualBytes = Bytes.toBytes( StormRiderViewConstants.colNodesDistance ), val = Bytes.toBytes( value ) ;
+			Put update = new Put( rowBytes ) ;
+			update.add( colFamilyBytes, colQualBytes, val ) ;
+			landmarksTable.checkAndPut( rowBytes, colFamilyBytes, colQualBytes, val, update ) ;
+		}
+		catch( Exception e ) { throw new MaterializedViewsException( "Exception during updation of distance value in LandmarksView:: ", e ) ; }		
+	}
+
 	public long getDistanceToLandmark( String row )
 	{
 		long distance = 0L ;

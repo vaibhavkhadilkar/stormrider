@@ -23,7 +23,7 @@ import edu.utdallas.cs.stormrider.util.StormRiderConstants;
 
 public class JenaMemStoreImpl extends StoreBase
 {
-	public JenaMemStoreImpl() { model = ModelFactory.createDefaultModel() ; }
+	public JenaMemStoreImpl() { this( false ) ; }
 	
 	public JenaMemStoreImpl( boolean isReified ) 
 	{ 

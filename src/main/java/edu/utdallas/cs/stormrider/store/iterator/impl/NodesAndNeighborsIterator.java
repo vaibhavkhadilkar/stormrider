@@ -14,24 +14,29 @@
  * limitations under the License.
  */
 
-package edu.utdallas.cs.stormrider.store;
+package edu.utdallas.cs.stormrider.store.iterator.impl;
 
-import java.util.Iterator;
-
-import com.hp.hpl.jena.query.Query;
+import com.hp.hpl.jena.query.QuerySolution;
 import com.hp.hpl.jena.query.ResultSet;
 
-import edu.utdallas.cs.stormrider.store.iterator.impl.NodeAndNeighbor;
+import edu.utdallas.cs.stormrider.store.iterator.AbstractIterator;
 
-public interface Store 
+public class NodesAndNeighborsIterator extends AbstractIterator<NodeAndNeighbor>
 {
-	public void addTriple( String subject, String predicate, String object ) ;
+	private ResultSet rs = null ;
 	
-	public ResultSet executeSelectQuery( Query query ) ;
+	public NodesAndNeighborsIterator( ResultSet rs ) { this.rs = rs ; }
 	
-	public ResultSet getNodesForAnalysis( String linkNameAsURI ) ;
-	
-	public String getAdjacencyList( String nodeAsURI, String linkNameAsURI ) ;
-	
-	public Iterator<NodeAndNeighbor> getAllNodesWithNeighbors( String linkNameAsURI ) ;
+	@Override
+	public NodeAndNeighbor _next()
+	{
+		NodeAndNeighbor nn = null ;
+		if( rs.hasNext() )
+		{
+			QuerySolution qs = rs.next() ;
+			String node = qs.getResource( "?x" ).toString(), neighbor = qs.getResource( "?y" ).toString() ;
+			nn = new NodeAndNeighbor( node, neighbor ) ;
+		}
+		return nn ;
+	}
 }

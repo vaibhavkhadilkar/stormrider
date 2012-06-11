@@ -47,7 +47,7 @@ public class CountUserDegreeBolt implements IRichBolt
     {
     	try
     	{
-    		if( input.getString( 0 ).equals( "node-vv" ) )
+    		if( input.getString( 0 ).equals( "nlv" ) )
     		{
     			String node = input.getString( 1 ) ;
     			Long degree = mapNodeToDegree.get( node ) ;

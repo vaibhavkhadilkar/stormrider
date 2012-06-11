@@ -75,7 +75,7 @@ public class MergeUsersBolt implements IRichBolt
         return null ;
     }
 	
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
     public void execute( Tuple input ) 
     {

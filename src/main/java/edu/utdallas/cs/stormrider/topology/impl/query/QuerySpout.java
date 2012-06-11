@@ -54,12 +54,12 @@ public class QuerySpout implements IRichSpout
 	private Query query = null ;
 	
     /** Constructor **/
-    public QuerySpout( boolean isDistributed, long maxReports, long interval, String queryString, String configFile ) 
+    public QuerySpout( boolean isDistributed, long maxReports, long interval, String queryString, boolean isReified, String configFile ) 
     { 
     	this.isDistributed = isDistributed ;
     	this.maxReports = maxReports ;
     	this.interval = interval ;
-    	store = StoreFactory.getJenaHBaseStore( configFile ) ;
+    	store = StoreFactory.getJenaHBaseStore( configFile, isReified ) ;
     	this.query = QueryFactory.create( queryString ) ;
     }
     

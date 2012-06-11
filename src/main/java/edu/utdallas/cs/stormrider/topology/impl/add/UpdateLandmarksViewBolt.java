@@ -17,9 +17,12 @@
 package edu.utdallas.cs.stormrider.topology.impl.add;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import edu.emory.mathcs.backport.java.util.Arrays;
 import edu.utdallas.cs.stormrider.store.Store;
 import edu.utdallas.cs.stormrider.store.StoreFactory;
 import edu.utdallas.cs.stormrider.topology.TopologyException;
@@ -42,9 +45,9 @@ public class UpdateLandmarksViewBolt implements IRichBolt
 	
 	private List<String> nonLandmarksList = new ArrayList<String>() ;
 	
-	public UpdateLandmarksViewBolt( String storeConfigFile, String viewsConfigFile ) 
+	public UpdateLandmarksViewBolt( boolean isReified, String storeConfigFile, String viewsConfigFile ) 
 	{ 
-		store = StoreFactory.getJenaHBaseStore( storeConfigFile ) ;
+		store = StoreFactory.getJenaHBaseStore( storeConfigFile, isReified ) ;
 		views = ViewsFactory.getViews( viewsConfigFile ) ;
 		nonLandmarksList = views.getNonLandmarksList() ;
 	}
@@ -63,19 +66,97 @@ public class UpdateLandmarksViewBolt implements IRichBolt
             for( List landmarkList : landmarksLists )
             {
             	String landmark = (String) landmarkList.get( 0 ) ;
+            	LandmarkInfo landmarkInfo = SSSP( landmark ) ;
             	for( String node : nonLandmarksList )
             	{
-            		
+            		NodeInfo nodeInfo = landmarkInfo.getNodeInfo( node ) ;
+            		StringBuilder sb = new StringBuilder() ; sb.append( landmark ) ; sb.append( "&" ) ; sb.append( node ) ;
+            		StringBuilder sbDist = new StringBuilder() ; sbDist.append( nodeInfo.getDistance() ) ;
+            		StringBuilder sbNumOfPaths = new StringBuilder() ; sbNumOfPaths.append( nodeInfo.getNumOfPaths() ) ;
+            		views.updateDistanceValue( sb.toString(), sbDist.toString() ) ;
+            		views.updateNumOfPathsValue( sb.toString(), sbNumOfPaths.toString() ) ;
+            		for( int i = 0 ; i < nodeInfo.getNumOfPaths() ; i++ )
+            			views.updatePathsValue( sb.toString(), nodeInfo.getPath( i ) ) ;
+            		sb = null ; sbDist = null ; sbNumOfPaths = null ;
             	}
+				String adjList = store.getAdjacencyList( landmark, views.getLinkNameAsURI() ) ;
+				views.updateAdjacencyListValue( landmark, adjList ) ;
+				views.updateIsLandmarkValue( landmark, "Y" ) ;
+				views.updateDistToClosestLandmarkValue( landmark, "0" ) ;
+				views.updateClosestLandmarkValue( landmark, landmark ) ;
             }
     	}
         catch( Exception e ) { throw new TopologyException( "Exception in update nodes view bolt:: ", e ) ; }
     }
 
-    private String[] SSSP( String landmark )
+    @SuppressWarnings("unchecked")
+	private LandmarkInfo SSSP( String landmark )
     {
-    	String[] closestLandmark = new String[2] ;
-    	return closestLandmark ;
+    	LandmarkInfo landmarkInfo = new LandmarkInfo() ;
+    	landmarkInfo.setLandmark( landmark ) ;
+    	
+    	//Maximum depth to explore
+    	long depth = 1L ;
+
+    	//Get adjacency list
+    	Map<String, List<String>> mapCurrIterNodeToAdjList = new LinkedHashMap<String, List<String>>() ;
+    	mapCurrIterNodeToAdjList.put( landmark, Arrays.asList( store.getAdjacencyList( landmark, views.getLinkNameAsURI() ).split( "~" ) ) ) ;
+    	Map<String, List<String>> mapNextIterNodeToAdjList = new LinkedHashMap<String, List<String>>() ;
+    	
+    	while( depth < 15 )
+    	{
+    		Iterator<String> iterKeys = mapCurrIterNodeToAdjList.keySet().iterator() ;
+    		while( iterKeys.hasNext() )
+    		{
+    			String prevIterNode = iterKeys.next() ;
+    			List<String> currIterNodeList = mapCurrIterNodeToAdjList.get( prevIterNode ) ;
+    			for( String node : currIterNodeList )
+    			{
+        			NodeInfo nInfo = landmarkInfo.getNodeInfo( node ) ;
+        			if( nInfo == null )
+        			{
+        				nInfo = new NodeInfo() ;
+        				nInfo.setNode( node ) ;
+        				nInfo.setDistance( depth ) ;
+        				if( depth == 1 )
+        				{
+    	        			StringBuilder sb = new StringBuilder() ; sb.append( landmark ) ; sb.append( "~" ) ; sb.append( node ) ;
+    	        			nInfo.setNumOfPaths( 1 ) ;
+    	        			nInfo.addPath( sb.toString() ) ;
+    	        			sb = null ;	        					
+        				}
+        				else
+        				{
+	        				NodeInfo pInfo = landmarkInfo.getNodeInfo( prevIterNode ) ;
+	        				nInfo.setNumOfPaths( pInfo.getNumOfPaths() ) ;
+	        				addNewPath( node, pInfo, nInfo ) ;
+        				}
+        			}
+        			else if( nInfo.getDistance() == depth )
+        			{
+        				NodeInfo pInfo = landmarkInfo.getNodeInfo( prevIterNode ) ;
+        				nInfo.setNumOfPaths( nInfo.getNumOfPaths() + pInfo.getNumOfPaths() ) ;
+        				addNewPath( node, pInfo, nInfo ) ;
+        			}
+        			landmarkInfo.addNodeInfo( node, nInfo ) ;
+	    			if( depth < 15 ) mapNextIterNodeToAdjList.put( node, Arrays.asList( store.getAdjacencyList( node, views.getLinkNameAsURI() ).split( "~" ) ) ) ;
+    			}
+    		}
+    		mapCurrIterNodeToAdjList.clear() ; mapCurrIterNodeToAdjList.putAll( mapNextIterNodeToAdjList ) ;
+    		depth++ ;
+    	}
+    	return landmarkInfo ;
+    }
+    
+    private void addNewPath( String node, NodeInfo pInfo, NodeInfo nInfo )
+    {
+		for( int i = 0 ; i < pInfo.getNumOfPaths() ; i++ )
+		{
+			StringBuilder sb = new StringBuilder() ;
+			sb.append( pInfo.getPath( i ) ) ; sb.append( "~" ) ; sb.append( node ) ;
+			nInfo.addPath( sb.toString() ) ;
+			sb = null ;
+		}
     }
     
     @Override

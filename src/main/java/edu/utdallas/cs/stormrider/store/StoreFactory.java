@@ -21,7 +21,15 @@ import edu.utdallas.cs.stormrider.store.impl.JenaMemStoreImpl;
 
 public class StoreFactory 
 {
-	public static Store getJenaMemStore()   					{ return new JenaMemStoreImpl() ; }
+	public static Store getJenaMemStore()   					
+	{ return new JenaMemStoreImpl() ; }
 	
-	public static Store getJenaHBaseStore( String configFile )	{ return new JenaHBaseStoreImpl( configFile ) ; }
+	public static Store getJenaMemStore( boolean isReified )	
+	{ return new JenaMemStoreImpl( isReified ) ; }
+	
+	public static Store getJenaHBaseStore( String configFile )	
+	{ return new JenaHBaseStoreImpl( configFile ) ; }
+	
+	public static Store getJenaHBaseStore( String configFile, boolean isReified )
+	{ return new JenaHBaseStoreImpl( configFile, isReified ) ; }
 }

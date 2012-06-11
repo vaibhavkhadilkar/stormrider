@@ -14,20 +14,25 @@
  * limitations under the License.
  */
 
-package edu.utdallas.cs.stormrider.util;
+package edu.utdallas.cs.stormrider.topology.impl.add;
 
-/**
- * A class containing constants that are used throughout the framework
- */
-public class StormRiderConstants 
-{	
-	public static final String REIFIED_STATEMENT_NS = "reified-stmt" ;
+public class ClosestLandmark 
+{
+	private String node = null ;
 	
-	public static final String REIFIED_STATEMENT_URI = "http://www.example.org/reified-stmt#" ;
-			
-    public static final String colFamResults = "Results" ;
-    
-    public static final String QUERY_TOPOLOGY_NAME_PREFIX = "query-topology-" ;
-    
-    public static final String ANALYZE_TOPOLOGY_NAME = "analyze-topology-" ;
+	private long distance = 0L ; 
+	
+	private String landmark = null ;
+	
+	public void setNode( String node ) { this.node = node ; }
+	
+	public String getNode() { return node ; }
+	
+	public void setDistance( long distance ) { this.distance = distance ; }
+	
+	public long getDistance() { return distance ; }
+	
+	public void setLandmark( String landmark ) { this.landmark = landmark ; }
+	
+	public String getLandmark() { return landmark ; }
 }

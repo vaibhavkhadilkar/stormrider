@@ -33,9 +33,9 @@ public class TripleLoaderBolt implements IRichBolt
 
 	private Store store = null ;
 	
-	public TripleLoaderBolt( String storeConfigFile ) 
+	public TripleLoaderBolt( boolean isReified, String storeConfigFile ) 
 	{ 
-		store = StoreFactory.getJenaHBaseStore( storeConfigFile ) ; 
+		store = StoreFactory.getJenaHBaseStore( storeConfigFile, isReified ) ; 
 	}
 	
 	@SuppressWarnings("rawtypes")

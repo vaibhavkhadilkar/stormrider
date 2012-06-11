@@ -73,4 +73,10 @@ public abstract class ViewsBase implements Views
 	public void updateClosestLandmarkValue( String row, String value ) { nView.updateClosestLandmarkValue( row, value ) ; } 
 	
 	public List<String> getNonLandmarksList() { return nView.getNonLandmarksList() ; }
+	
+	public void updateDistanceValue( String row, String value ) { lView.updateDistanceValue( row, value ) ; }
+	
+	public void updateNumOfPathsValue( String row, String value ) { lView.updateNumOfPathsValue( row, value ) ; }
+	
+	public void updatePathsValue( String row, String value ) { lView.updatePathsValue( row, value ) ; }
 }

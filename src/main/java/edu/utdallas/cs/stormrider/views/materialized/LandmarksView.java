@@ -36,4 +36,10 @@ public interface LandmarksView
 	public String getLinkName() ;
 	
 	public StormRiderConnection getConnection() ;
+	
+	public void updateDistanceValue( String row, String value ) ;
+	
+	public void updateNumOfPathsValue( String row, String value ) ;
+	
+	public void updatePathsValue( String row, String value ) ;
 }

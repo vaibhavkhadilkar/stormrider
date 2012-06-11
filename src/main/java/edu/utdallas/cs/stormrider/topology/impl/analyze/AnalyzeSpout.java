@@ -51,11 +51,11 @@ public class AnalyzeSpout implements IRichSpout
 	private String linkNameAsURI = null ;
 	
     /** Constructor **/
-    public AnalyzeSpout( boolean isDistributed, long interval, String storeConfigFile, String viewsConfigFile ) 
+    public AnalyzeSpout( boolean isDistributed, long interval, boolean isReified, String storeConfigFile, String viewsConfigFile ) 
     { 
     	this.isDistributed = isDistributed ;
     	this.interval = interval ;
-    	store = StoreFactory.getJenaHBaseStore( storeConfigFile ) ;
+    	store = StoreFactory.getJenaHBaseStore( storeConfigFile, isReified ) ;
     	linkNameAsURI = ViewsFactory.getViews( viewsConfigFile ).getLinkNameAsURI() ;
     }
     

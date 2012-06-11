@@ -26,8 +26,7 @@ public class JenaHBaseStoreImpl extends StoreBase
 {
 	public JenaHBaseStoreImpl( String configFile )
 	{
-		Store store = HBaseRdfFactory.connectStore( configFile ) ;		
-		model = HBaseRdfFactory.connectDefaultModel( store ) ;
+		this( configFile, false ) ;
 	}
 	
 	public JenaHBaseStoreImpl( String configFile, boolean isReified )

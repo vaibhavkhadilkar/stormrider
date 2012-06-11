@@ -56,4 +56,10 @@ public interface Views
 	public void updateClosestLandmarkValue( String row, String value ) ;
 	
 	public List<String> getNonLandmarksList() ;
+	
+	public void updateDistanceValue( String row, String value ) ;
+	
+	public void updateNumOfPathsValue( String row, String value ) ;
+
+	public void updatePathsValue( String row, String value ) ;
 }

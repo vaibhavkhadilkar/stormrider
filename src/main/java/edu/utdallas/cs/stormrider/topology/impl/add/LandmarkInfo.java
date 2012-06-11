@@ -14,20 +14,24 @@
  * limitations under the License.
  */
 
-package edu.utdallas.cs.stormrider.util;
+package edu.utdallas.cs.stormrider.topology.impl.add;
 
-/**
- * A class containing constants that are used throughout the framework
- */
-public class StormRiderConstants 
-{	
-	public static final String REIFIED_STATEMENT_NS = "reified-stmt" ;
+import java.util.HashMap;
+import java.util.Map;
+
+public class LandmarkInfo 
+{
+	private String landmark = null ;
 	
-	public static final String REIFIED_STATEMENT_URI = "http://www.example.org/reified-stmt#" ;
-			
-    public static final String colFamResults = "Results" ;
-    
-    public static final String QUERY_TOPOLOGY_NAME_PREFIX = "query-topology-" ;
-    
-    public static final String ANALYZE_TOPOLOGY_NAME = "analyze-topology-" ;
+	private Map<String, NodeInfo> mapNodeToInfo = null ;
+	
+	public LandmarkInfo() { mapNodeToInfo = new HashMap<String, NodeInfo>() ; }
+	
+	public void setLandmark( String landmark ) { this.landmark = landmark ; }
+	
+	public String getLandmark() { return landmark ; }
+	
+	public void addNodeInfo( String node, NodeInfo nInfo ) { mapNodeToInfo.put( node, nInfo ) ; }
+	
+	public NodeInfo getNodeInfo( String node ) { return mapNodeToInfo.get( node ) ; }
 }

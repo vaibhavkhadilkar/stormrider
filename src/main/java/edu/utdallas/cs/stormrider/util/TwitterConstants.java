@@ -56,4 +56,14 @@ public class TwitterConstants
 	public static final int NUM_OF_WORKERS = 14 ;	
 	
 	public static final int NUM_OF_TASKS = NUM_OF_WORKERS * 4 ;
+	
+	public static final boolean IS_DISTRIBUTED = false ;
+	
+	public static final boolean IS_LOCAL_MODE = true ;
+	
+	public static final long MAX_REPORTS = 1000 ;
+	
+	public static final long INTERVAL = 3600 ;
+	
+	public static String HBASE_CONFIG_FILE = "<== location of hbase-site.xml ==>" ;
 }

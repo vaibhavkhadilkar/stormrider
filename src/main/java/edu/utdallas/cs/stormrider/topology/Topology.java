@@ -22,5 +22,7 @@ public interface Topology
 {
 	public void submitAddTopology( String topologyName, boolean isLocalMode, int numOfWorkers, StormTopology topology ) ;
 	
-	public void submitQuery( boolean isDistributed, boolean isLocalMode, int numOfWorkers, long maxReports, long interval, String queryString, String configFile, String hbaseConfigFile, String resultTableName ) ;
+	public void submitAnalyzeTopology( boolean isDistributed, boolean isLocalMode, int numOfWorkers, long interval, boolean isReified, String storeConfigFile, String viewsConfigFile ) ;
+	
+	public void submitQuery( boolean isDistributed, boolean isLocalMode, int numOfWorkers, long maxReports, long interval, String queryString, boolean isReified, String storeConfigFile, String hbaseConfigFile, String resultTableName ) ;
 }
