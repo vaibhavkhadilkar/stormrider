@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import edu.utdallas.cs.stormrider.connection.StormRiderConnectionDesc;
 public class MaterializedViewsDesc 
 {
     public StormRiderConnectionDesc connDesc   	= null ;
-    private StorageType storage				= null ;
+    private StorageType storage					= null ;
     private String name							= null ;
     
     public static MaterializedViewsDesc read( String filename )

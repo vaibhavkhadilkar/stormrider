@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,19 @@ import edu.utdallas.cs.stormrider.util.StormRiderConstants;
 
 public class JenaMemStoreImpl extends StoreBase
 {
+	private static final long serialVersionUID = 8847135027004850161L;
+
 	public JenaMemStoreImpl() { this( false ) ; }
 	
 	public JenaMemStoreImpl( boolean isReified ) 
 	{ 
-		this.isReified = isReified ;
+		super( null, "", isReified, false ) ;
+		init( null, "", isReified, false ) ;
+	}
+	
+	public void init( String configFile, String iri, boolean isReified, boolean formatStore )
+	{
 		model = ModelFactory.createDefaultModel() ;
-		if( isReified ) model.setNsPrefix( StormRiderConstants.REIFIED_STATEMENT_NS, StormRiderConstants.REIFIED_STATEMENT_URI ) ;
+		if( isReified ) model.setNsPrefix( StormRiderConstants.REIFIED_STATEMENT_NS, StormRiderConstants.REIFIED_STATEMENT_URI ) ;		
 	}
 }

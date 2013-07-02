@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ public interface Topology
 {
 	public void submitAddTopology( String topologyName, boolean isLocalMode, int numOfWorkers, StormTopology topology ) ;
 	
-	public void submitAnalyzeTopology( boolean isDistributed, boolean isLocalMode, int numOfWorkers, long interval, boolean isReified, String storeConfigFile, String viewsConfigFile ) ;
+	public void submitAnalyzeTopology( boolean isLocalMode, int numOfWorkers, long interval, boolean isReified, String storeConfigFile, String viewsConfigFile ) ;
 	
-	public void submitQuery( boolean isDistributed, boolean isLocalMode, int numOfWorkers, long maxReports, long interval, String queryString, boolean isReified, String storeConfigFile, String hbaseConfigFile, String resultTableName ) ;
+	public void submitQuery( boolean isLocalMode, int numOfWorkers, long maxReports, long interval, String queryString, boolean isReified, 
+							 String storeConfigFile, String iri, String hbaseConfigFile, String resultTableName ) ;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 package edu.utdallas.cs.stormrider.topology.impl.add;
 
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import edu.emory.mathcs.backport.java.util.Arrays;
 import edu.utdallas.cs.stormrider.store.Store;
 import edu.utdallas.cs.stormrider.store.StoreFactory;
 import edu.utdallas.cs.stormrider.topology.TopologyException;
@@ -75,7 +75,6 @@ public class UpdateNodesViewBolt implements IRichBolt
         catch( Exception e ) { throw new TopologyException( "Exception in update nodes view bolt:: ", e ) ; }
     }
 
-    @SuppressWarnings("unchecked")
 	private ClosestLandmark BFS( String node, String adjList )
     {
 		boolean isClosestLandmarkFound = false ;
@@ -114,4 +113,7 @@ public class UpdateNodesViewBolt implements IRichBolt
 
     @Override
     public void declareOutputFields( OutputFieldsDeclarer declarer ) { }    
+    
+	@Override
+	public Map<String, Object> getComponentConfiguration() { return null ; }
 }

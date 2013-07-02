@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package edu.utdallas.cs.stormrider.topology.impl.add;
 
 import java.util.Map;
 
+import org.apache.log4j.Logger;
+
 import edu.utdallas.cs.stormrider.store.Store;
 import edu.utdallas.cs.stormrider.store.StoreFactory;
 
@@ -31,13 +33,29 @@ public class TripleLoaderBolt implements IRichBolt
 {
 	private static final long serialVersionUID = 1L ;
 
-	private Store store = null ;
+	/** A Logger for this class **/
+    private static Logger LOG = Logger.getLogger( TripleLoaderBolt.class ) ;
+
+    private boolean isReified = false ;
+    
+    private boolean formatStore = false ;
+    
+    private String storeConfigFile = null ;
+    
+    private String iri = null ;
+
+	public TripleLoaderBolt( boolean isReified, String storeConfigFile ) { this( isReified, storeConfigFile, "" ) ; }
 	
-	public TripleLoaderBolt( boolean isReified, String storeConfigFile ) 
+	public TripleLoaderBolt( boolean isReified, String storeConfigFile, String iri ) { this( isReified, storeConfigFile, iri, false ) ; }
+
+	public TripleLoaderBolt( boolean isReified, String storeConfigFile, String iri, boolean formatStore ) 
 	{ 
-		store = StoreFactory.getJenaHBaseStore( storeConfigFile, isReified ) ; 
+		this.isReified = isReified ;
+		this.formatStore = formatStore ;
+		this.storeConfigFile = storeConfigFile ;
+		this.iri = iri ;
 	}
-	
+
 	@SuppressWarnings("rawtypes")
 	@Override
     public void prepare( Map conf, TopologyContext context, OutputCollector collector) { }
@@ -45,8 +63,13 @@ public class TripleLoaderBolt implements IRichBolt
     @Override
     public void execute( Tuple input ) 
     {
-    	if( input.getString( 0 ).equals( "triple" ) )
-    		store.addTriple( input.getString( 1 ), input.getString( 2 ), input.getString( 3 ) ) ;
+    	try
+    	{
+    		Store store = StoreFactory.getJenaHBaseStore( storeConfigFile, iri, isReified, formatStore ) ; 
+	    	if( input.getString( 0 ).equals( "triple" ) )
+	    		store.addTriple( input.getString( 1 ), input.getString( 2 ), input.getString( 3 ) ) ;
+    	}
+    	catch( Exception e ) { LOG.info( "Error in adding triple in bolt", e ) ; }
     }
 
     @Override
@@ -54,4 +77,7 @@ public class TripleLoaderBolt implements IRichBolt
 
     @Override
     public void declareOutputFields( OutputFieldsDeclarer declarer ) { }    
+    
+	@Override
+	public Map<String, Object> getComponentConfiguration() { return null ; }
 }

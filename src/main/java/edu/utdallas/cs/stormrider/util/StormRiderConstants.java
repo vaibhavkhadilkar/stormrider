@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,8 @@ public class StormRiderConstants
 {	
 	public static final String REIFIED_STATEMENT_NS = "reified-stmt" ;
 	
-	public static final String REIFIED_STATEMENT_URI = "http://www.example.org/reified-stmt#" ;
+	public static final String REIFIED_STATEMENT_URI = "http://www.example.org/reified-stmt#tr-" ;
 			
-    public static final String colFamResults = "Results" ;
-    
     public static final String QUERY_TOPOLOGY_NAME_PREFIX = "query-topology-" ;
     
     public static final String ANALYZE_TOPOLOGY_NAME = "analyze-topology-" ;

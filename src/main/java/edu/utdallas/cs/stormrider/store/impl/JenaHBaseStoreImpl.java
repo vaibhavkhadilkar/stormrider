@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,16 +24,38 @@ import edu.utdallas.cs.stormrider.util.StormRiderConstants;
 
 public class JenaHBaseStoreImpl extends StoreBase
 {
+	private static final long serialVersionUID = 6058675792601078438L;
+
 	public JenaHBaseStoreImpl( String configFile )
 	{
-		this( configFile, false ) ;
+		this( configFile, "", false ) ;
 	}
 	
 	public JenaHBaseStoreImpl( String configFile, boolean isReified )
 	{
-		this.isReified = isReified ;
-		Store store = HBaseRdfFactory.connectStore( configFile ) ;		
-		model = HBaseRdfFactory.connectDefaultModel( store ) ;
-		model.setNsPrefix( StormRiderConstants.REIFIED_STATEMENT_NS, StormRiderConstants.REIFIED_STATEMENT_URI ) ;		
+		this( configFile, "", isReified ) ;
+	}
+	
+	public JenaHBaseStoreImpl( String configFile, String iri, boolean isReified )
+	{
+		this( configFile, iri, isReified, false ) ;
+	}
+	
+	public JenaHBaseStoreImpl( String configFile, String iri, boolean isReified, boolean formatStore )
+	{
+		super( configFile, iri, isReified, formatStore ) ;
+		init( configFile, iri, isReified, formatStore ) ;
+	}
+	
+	public void init( String configFile, String iri, boolean isReified, boolean formatStore )
+	{
+		Store store = HBaseRdfFactory.connectStore( configFile ) ;	
+		if( formatStore ) store.getTableFormatter().format() ;
+		
+		if( iri.equals( "" ) )
+			model = HBaseRdfFactory.connectDefaultModel( store ) ;
+		else 
+			model = HBaseRdfFactory.connectNamedModel( store, iri ) ;
+		model.setNsPrefix( StormRiderConstants.REIFIED_STATEMENT_NS, StormRiderConstants.REIFIED_STATEMENT_URI ) ;				
 	}
 }

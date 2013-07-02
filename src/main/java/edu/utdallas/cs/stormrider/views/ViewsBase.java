@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@ import edu.utdallas.cs.stormrider.views.materialized.NodesView;
 
 public abstract class ViewsBase implements Views
 {
+	private static final long serialVersionUID = -7049453474477514851L;
+
 	protected MaterializedViews mvs = null ;
 	
 	protected NodesView nView = null ;

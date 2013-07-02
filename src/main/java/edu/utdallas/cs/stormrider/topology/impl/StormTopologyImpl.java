@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 import backtype.storm.Config;
-import backtype.storm.LocalCluster;
+import backtype.storm.ILocalCluster;
 import backtype.storm.StormSubmitter;
+import backtype.storm.Testing;
 import backtype.storm.generated.StormTopology;
+import backtype.storm.testing.MkClusterParam;
+import backtype.storm.testing.TestJob;
 import backtype.storm.topology.TopologyBuilder;
 import backtype.storm.utils.Utils;
 import edu.utdallas.cs.stormrider.topology.TopologyBase;
@@ -34,6 +37,7 @@ import edu.utdallas.cs.stormrider.topology.impl.analyze.DegreeCentralityBolt;
 import edu.utdallas.cs.stormrider.topology.impl.query.QueryBolt;
 import edu.utdallas.cs.stormrider.topology.impl.query.QuerySpout;
 import edu.utdallas.cs.stormrider.util.StormRiderConstants;
+import edu.utdallas.cs.stormrider.util.TwitterConstants;
 
 public class StormTopologyImpl extends TopologyBase
 {
@@ -42,21 +46,22 @@ public class StormTopologyImpl extends TopologyBase
 		submitTopology( topologyName, isLocalMode, numOfWorkers, topology ) ;
 	}
 	
-	public void submitAnalyzeTopology( boolean isDistributed, boolean isLocalMode, int numOfWorkers, long interval, boolean isReified, String storeConfigFile, String viewsConfigFile )
+	public void submitAnalyzeTopology( boolean isLocalMode, int numOfWorkers, long interval, boolean isReified, String storeConfigFile, String viewsConfigFile )
 	{
 		TopologyBuilder builder = new TopologyBuilder() ;
-		builder.setSpout( 1, new AnalyzeSpout( isDistributed, interval, isReified, storeConfigFile, viewsConfigFile ), 1 ) ;
-		builder.setBolt( 2, new DegreeCentralityBolt( viewsConfigFile ), numOfWorkers * 4 ).shuffleGrouping( 1 ) ;
-		builder.setBolt( 2, new ClosenessCentralityBolt( viewsConfigFile ), numOfWorkers * 4 ).shuffleGrouping( 1 ) ;
-		builder.setBolt( 2, new BetweennessCentralityBolt( viewsConfigFile ), numOfWorkers * 4 ).shuffleGrouping( 1 ) ;
+		builder.setSpout( "analyze", new AnalyzeSpout( interval, isReified, storeConfigFile, viewsConfigFile ), TwitterConstants.PARALLELISM_HINT ) ;
+		builder.setBolt( "deg-cen", new DegreeCentralityBolt( viewsConfigFile ), TwitterConstants.PARALLELISM_HINT ).shuffleGrouping( "analyze" ) ;
+		builder.setBolt( "close-cen", new ClosenessCentralityBolt( viewsConfigFile ), TwitterConstants.PARALLELISM_HINT ).shuffleGrouping( "analyze" ) ;
+		builder.setBolt( "bet-cen", new BetweennessCentralityBolt( viewsConfigFile ), TwitterConstants.PARALLELISM_HINT ).shuffleGrouping( "analyze" ) ;
 		submitTopology( StormRiderConstants.ANALYZE_TOPOLOGY_NAME + System.nanoTime(), isLocalMode, numOfWorkers, builder.createTopology() ) ;
 	}
 	
-	public void submitQuery( boolean isDistributed, boolean isLocalMode, int numOfWorkers, long maxReports, long interval, String queryString, boolean isReified, String storeConfigFile, String hbaseConfigFile, String resultTableName )
+	public void submitQuery( boolean isLocalMode, int numOfWorkers, long maxReports, long interval, String queryString, boolean isReified, 
+							 String storeConfigFile, String iri, String hbaseConfigFile, String resultTableName )
 	{
 		TopologyBuilder builder = new TopologyBuilder() ;
-		builder.setSpout( 1, new QuerySpout( isDistributed, maxReports, interval, queryString, isReified, storeConfigFile ), 1 ) ;
-		builder.setBolt( 2, new QueryBolt( hbaseConfigFile, resultTableName ), numOfWorkers * 4 ).shuffleGrouping( 1 ) ;
+		builder.setSpout( "query", new QuerySpout( maxReports, interval, queryString, isReified, storeConfigFile, iri ), TwitterConstants.PARALLELISM_HINT ) ;
+		builder.setBolt( "results", new QueryBolt( hbaseConfigFile, resultTableName, queryString ), TwitterConstants.PARALLELISM_HINT ).shuffleGrouping( "query" ) ;
 		submitTopology( StormRiderConstants.QUERY_TOPOLOGY_NAME_PREFIX + System.nanoTime(), isLocalMode, numOfWorkers, builder.createTopology() ) ;
 	}
 	
@@ -64,16 +69,37 @@ public class StormTopologyImpl extends TopologyBase
 	{
 		try
 		{
-			Map<Object, Object> conf = new HashMap<Object, Object>() ;
+			final Map<Object, Object> conf = new HashMap<Object, Object>() ;
+			final String topName = topologyName ;
+			final StormTopology top = topology ;
 			conf.put( Config.TOPOLOGY_WORKERS, numOfWorkers ) ;
+			conf.put( Config.TOPOLOGY_MAX_TASK_PARALLELISM, TwitterConstants.MAX_TASK_PARALLELISM ) ;
+			conf.put( Config.TOPOLOGY_TASKS, TwitterConstants.NUM_OF_TASKS ) ;
+			conf.put( Config.TOPOLOGY_WORKER_SHARED_THREAD_POOL_SIZE, TwitterConstants.WORKER_SHARED_THREAD_POOL_SIZE ) ;
+			conf.put( Config.SUPERVISOR_SLOTS_PORTS, "6700" ) ;
+			
 			if( isLocalMode ) 
 			{
-				conf.put( Config.TOPOLOGY_DEBUG, true ) ;
+				conf.put( Config.TOPOLOGY_DEBUG, true ) ;	
+
+				MkClusterParam clusterParam = new MkClusterParam() ;
+				clusterParam.setSupervisors( 1 ) ;
+				clusterParam.setPortsPerSupervisor( 1 ) ;
+				clusterParam.setDaemonConf( conf ) ;
 				
-				LocalCluster cluster = new LocalCluster() ;
-				cluster.submitTopology( topologyName, conf, topology ) ;
-				Utils.sleep( 10000 ) ;
-				cluster.shutdown() ;
+				Testing.withLocalCluster( clusterParam, 
+				new TestJob() 
+				{
+					@Override
+					public void run( ILocalCluster cluster ) throws Exception 
+					{
+						cluster.submitTopology( topName, conf, top ) ;
+						Utils.sleep( 1000000 ) ;
+						cluster.shutdown() ;
+					}
+				} ) ;
+//				LocalCluster cluster = new LocalCluster() ;
+//				cluster.submitTopology( topologyName, conf, topology ) ;
 			}
 			else
 				StormSubmitter.submitTopology( topologyName, conf, topology ) ;

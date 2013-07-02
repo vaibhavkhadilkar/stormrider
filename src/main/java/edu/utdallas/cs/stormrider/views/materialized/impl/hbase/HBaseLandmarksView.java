@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package edu.utdallas.cs.stormrider.views.materialized.impl.hbase;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -31,7 +32,6 @@ import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.CompareFilter;
 import org.apache.hadoop.hbase.util.Bytes;
 
-import edu.emory.mathcs.backport.java.util.Arrays;
 import edu.utdallas.cs.stormrider.connection.StormRiderConnection;
 import edu.utdallas.cs.stormrider.util.StormRiderViewConstants;
 import edu.utdallas.cs.stormrider.views.materialized.LandmarksViewBase;
@@ -138,7 +138,6 @@ public class HBaseLandmarksView extends LandmarksViewBase
 		return numOfPaths ;
 	}	
 
-	@SuppressWarnings("unchecked")
 	public List<String> getListOfPathsToLandmark( String row )
 	{
 		List<String> listOfPaths = null ;

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,13 @@
 
 package edu.utdallas.cs.stormrider.views;
 
+import java.io.Serializable;
 import java.util.Iterator;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Result;
 
-public interface Views 
+public interface Views extends Serializable
 {
 	public void updateMetricValue( String row, String metric, double value ) ;
 	

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,4 +77,7 @@ public class ClosenessCentralityBolt implements IRichBolt
 
     @Override
     public void declareOutputFields( OutputFieldsDeclarer declarer ) { }    
+    
+	@Override
+	public Map<String, Object> getComponentConfiguration() { return null ; }
 }

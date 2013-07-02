@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package edu.utdallas.cs.stormrider.topology.impl.query;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
@@ -28,8 +29,10 @@ import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.hp.hpl.jena.query.Query;
+import com.hp.hpl.jena.query.QueryFactory;
+
 import edu.utdallas.cs.stormrider.topology.TopologyException;
-import edu.utdallas.cs.stormrider.util.StormRiderConstants;
 
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
@@ -41,26 +44,36 @@ public class QueryBolt implements IRichBolt
 {
 	private static final long serialVersionUID = 1L ;
 
-	private HTable resultTable = null ;
+	private String hbaseConfigFile = null ;
 	
-	private Configuration hbaseConfig = null ;
+	private String resultTableName = null ;
 	
-	public QueryBolt( String hbaseConfigFile, String resultTableName ) 
+	private String queryString = null ;
+	
+	public QueryBolt( String hbaseConfigFile, String resultTableName, String queryString ) 
 	{ 
-		hbaseConfig = HBaseConfiguration.create();
-        hbaseConfig.addResource( new Path( hbaseConfigFile ) );
-		createResultTable( resultTableName ) ;
+		this.hbaseConfigFile = hbaseConfigFile ;
+		this.resultTableName = resultTableName ;
+		this.queryString = queryString ;
 	}
 	
-	private void createResultTable( String resultTableName )
+	private HTable getResultTable( String hbaseConfigFile, String resultTableName, List<String> resultVars, String msg )
 	{
+		Configuration hbaseConfig = HBaseConfiguration.create();
+        hbaseConfig.addResource( new Path( hbaseConfigFile ) );
+		return createResultTable( resultTableName, hbaseConfig, resultVars, msg ) ;
+	}
+	
+	private HTable createResultTable( String resultTableName, Configuration hbaseConfig, List<String> resultVars, String msg )
+	{
+		HTable resultTable = null ;
 		try
 		{
 			HBaseAdmin admin = new HBaseAdmin( hbaseConfig ) ;
 	
-			if( admin.tableExists( resultTableName ) )
+			if( msg.equals( "new" ) && admin.tableExists( resultTableName ) )
 			{
-				admin.disableTable( resultTableName ) ;
+				if( admin.isTableEnabled( resultTableName ) ) admin.disableTable( resultTableName ) ;
 				admin.deleteTable( resultTableName ) ;
 			}
 			
@@ -70,16 +83,21 @@ public class QueryBolt implements IRichBolt
 				admin.createTable( tableDescriptor ) ;
 				admin.disableTable( resultTableName ) ;
 			
-				HColumnDescriptor resultColDesc = new HColumnDescriptor( StormRiderConstants.colFamResults ) ;
-				resultColDesc.setMaxVersions( Integer.MAX_VALUE ) ;
-				admin.addColumn( resultTableName, resultColDesc ) ;
+				for( int i = 0 ; i < resultVars.size() ; i++ )
+				{
+					HColumnDescriptor resultColDesc = new HColumnDescriptor( resultVars.get( i ) ) ;
+					resultColDesc.setMaxVersions( Integer.MAX_VALUE ) ;
+					admin.addColumn( resultTableName, resultColDesc ) ;
+				}
 				
 				admin.enableTable( resultTableName ) ;
 			}
 			resultTable = new HTable( hbaseConfig, resultTableName ) ;
 			resultTable.setAutoFlush( true ) ;
+			Thread.sleep( 20000 ) ;
 		}
         catch( Exception e ) { throw new TopologyException( "Exception during hbase result table creation in query bolt:: ", e ) ; }
+        return resultTable ;
 	}
 	
 	@SuppressWarnings("rawtypes")
@@ -91,10 +109,13 @@ public class QueryBolt implements IRichBolt
     {
     	try
     	{
-    		long numOfVars = input.size() ;
-    		for( int i = 0 ; i < numOfVars ; i++ )
+    		Query query = QueryFactory.create( queryString ) ;
+			List<String> resultVars = query.getResultVars() ;
+    		String msg = input.getString( 0 ) ;
+			HTable resultTable = getResultTable( hbaseConfigFile, resultTableName, resultVars, msg ) ;
+    		for( int i = 0 ; i < resultVars.size() ; i++ )
     		{
-    			byte[] rowBytes = Bytes.toBytes( i ), colFamilyBytes = Bytes.toBytes( StormRiderConstants.colFamResults + ":Var" + (i+1) ),
+    			byte[] rowBytes = Bytes.toBytes( i-1 ), colFamilyBytes = Bytes.toBytes( resultVars.get( i ) ),
     			       colQualBytes = Bytes.toBytes( input.getString( i ) ) ;
     			Put update = new Put( rowBytes ) ;
     			update.add( colFamilyBytes, colQualBytes, Bytes.toBytes( "" ) ) ;
@@ -108,5 +129,8 @@ public class QueryBolt implements IRichBolt
     public void cleanup() { }
 
     @Override
-    public void declareOutputFields( OutputFieldsDeclarer declarer ) { }    
+    public void declareOutputFields( OutputFieldsDeclarer declarer ) { }  
+    
+	@Override
+	public Map<String, Object> getComponentConfiguration() { return null ; }
 }

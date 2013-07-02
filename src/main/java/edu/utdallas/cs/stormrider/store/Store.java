@@ -1,5 +1,5 @@
 /*
- * Copyright © 2012 The University of Texas at Dallas
+ * Copyright © 2012-2013 The University of Texas at Dallas
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package edu.utdallas.cs.stormrider.store;
 
+import java.io.Serializable;
 import java.util.Iterator;
 
 import com.hp.hpl.jena.query.Query;
@@ -23,7 +24,7 @@ import com.hp.hpl.jena.query.ResultSet;
 
 import edu.utdallas.cs.stormrider.store.iterator.impl.NodeAndNeighbor;
 
-public interface Store 
+public interface Store extends Serializable
 {
 	public void addTriple( String subject, String predicate, String object ) ;
 	
