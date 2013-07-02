@@ -23,13 +23,14 @@ import edu.utdallas.cs.stormrider.util.TwitterConstants;
 
 public class TwitterTopologies 
 {
-	public void main( String[] args )
+	public static void main( String[] args )
 	{
 		//Create a topology object
 		Topology topology = TopologyFactory.getStormTopology() ;
 		
 		//Create and Submit Add Topology
-		topology.submitAddTopology( TwitterConstants.STORAGE_TOPOLOGY_NAME, false, TwitterConstants.NUM_OF_WORKERS, TwitterLoaderTopology.constructAddTopology() ) ;
+		topology.submitAddTopology( TwitterConstants.STORAGE_TOPOLOGY_NAME, false, TwitterConstants.NUM_OF_WORKERS, 
+									TwitterLoaderTopology.constructAddTopology() ) ;
 		
 		//Submit various queries to the query topology
 		//A simple query that tracks users in a particular location
@@ -37,9 +38,10 @@ public class TwitterTopologies
 		" PREFIX twitter: <http://cs.utdallas.edu/semanticweb/StormRider/vocabs/twitter/0.1#> " +
 		" SELECT ?x " +
 		" WHERE { ?x twitter:Location \"Richardson, TX\" } " ;
-		topology.submitQuery( TwitterConstants.IS_DISTRIBUTED, TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
+		topology.submitQuery( TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
 				              TwitterConstants.MAX_REPORTS, TwitterConstants.INTERVAL, queryString, true,
-				              TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_CONFIG_FILE, "query-simple1-location" ) ;
+				              TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.IRI, TwitterConstants.HBASE_CONFIG_FILE, 
+				              "query-simple1-location" ) ;
 		
 		//A query that tracks the neighborhood of a user
 		queryString = 
@@ -47,9 +49,10 @@ public class TwitterTopologies
 		" PREFIX twitter: <http://cs.utdallas.edu/semanticweb/StormRider/vocabs/twitter/0.1#> " +
 		" SELECT ?x " +
 		" WHERE { <ex:u-15000001> gleen:onPath(\"([twitter:Has_Friend]/[twitter:Has_Friend])\" ?x) } " ;
-		topology.submitQuery( TwitterConstants.IS_DISTRIBUTED, TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
+		topology.submitQuery( TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
 	              			  TwitterConstants.MAX_REPORTS, TwitterConstants.INTERVAL, queryString, true,
-	              			  TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_CONFIG_FILE, "query-complex1-neighborhood" ) ;
+	              			  TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.IRI, TwitterConstants.HBASE_CONFIG_FILE, 
+	              			  "query-complex1-neighborhood" ) ;
 
 		//A user that queries an older version of the graph
 		queryString = 
@@ -65,9 +68,10 @@ public class TwitterTopologies
 		"		?x rdf:object ?z . " +
 		"		FILTER( ?y <= \"2012-06-05T21:00:00\"^^xsd:dateTime ) " +
 		" } " ;
-		topology.submitQuery( TwitterConstants.IS_DISTRIBUTED, TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
+		topology.submitQuery( TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
 	              			  TwitterConstants.MAX_REPORTS, TwitterConstants.INTERVAL, queryString, true,
-	              			  TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_CONFIG_FILE, "query-complex2-versioning" ) ;
+	              			  TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.IRI, TwitterConstants.HBASE_CONFIG_FILE, 
+	              			  "query-complex2-versioning" ) ;
 
 		//Queries that monitor various keywords
 		queryString = 
@@ -80,9 +84,10 @@ public class TwitterTopologies
 		"		?y tw:Tweet_Text ?z " +
 		"		FILTER regex(?z, \"bombing\", \"i\") " +
 		" } " ;
-		topology.submitQuery( TwitterConstants.IS_DISTRIBUTED, TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
+		topology.submitQuery( TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
 	              			  TwitterConstants.MAX_REPORTS, TwitterConstants.INTERVAL, queryString, true,
-	              			  TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_CONFIG_FILE, "query-complex3-monitoring1" ) ;
+	              			  TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.IRI, TwitterConstants.HBASE_CONFIG_FILE, 
+	              			  "query-complex3-monitoring1" ) ;
 
 		queryString = 
 		" PREFIX ex: <http://www.example.org/people#> " +
@@ -94,9 +99,10 @@ public class TwitterTopologies
 		"		?y tw:Tweet_Text ?z " +
 		"		FILTER regex(?z, \".*(bombing|explosion).*america.*\", \"i\") " +
 		" } " ;
-		topology.submitQuery( TwitterConstants.IS_DISTRIBUTED, TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
+		topology.submitQuery( TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
 		             		  TwitterConstants.MAX_REPORTS, TwitterConstants.INTERVAL, queryString, true,
-		             		  TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_CONFIG_FILE, "query-complex3-monitoring2" ) ;
+		             		  TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.IRI, TwitterConstants.HBASE_CONFIG_FILE, 
+		             		  "query-complex3-monitoring2" ) ;
 
 		queryString = 
 		" PREFIX ex: <http://www.example.org/people#> " +
@@ -109,12 +115,13 @@ public class TwitterTopologies
 		"		?y tw:Tweet_Place \"Richardson,TX\"^^xsd:string " +
 		"		FILTER regex(?z, \".*(bombing|explosion).*america.*\", \"i\") " +
 		" } " ;
-		topology.submitQuery( TwitterConstants.IS_DISTRIBUTED, TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
+		topology.submitQuery( TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
 		             		  TwitterConstants.MAX_REPORTS, TwitterConstants.INTERVAL, queryString, true,
-		             		  TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_CONFIG_FILE, "query-complex3-monitoring3" ) ;
+		             		  TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.IRI, TwitterConstants.HBASE_CONFIG_FILE, 
+		             		  "query-complex3-monitoring3" ) ;
 		
 		//Start the analyze topology
-		topology.submitAnalyzeTopology( TwitterConstants.IS_DISTRIBUTED, TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
+		topology.submitAnalyzeTopology( TwitterConstants.IS_LOCAL_MODE, TwitterConstants.NUM_OF_WORKERS, 
 										TwitterConstants.INTERVAL, true, TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_VIEW_CONFIG_FILE ) ;
 	}
 }

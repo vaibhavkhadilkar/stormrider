@@ -20,7 +20,7 @@ import edu.utdallas.cs.stormrider.topology.impl.add.CountUserDegreeBolt;
 import edu.utdallas.cs.stormrider.topology.impl.add.MergeUsersBolt;
 import edu.utdallas.cs.stormrider.topology.impl.add.RankUsersBolt;
 import edu.utdallas.cs.stormrider.topology.impl.add.TripleLoaderBolt;
-import edu.utdallas.cs.stormrider.topology.impl.add.UpdateLandmarksViewBolt;
+import edu.utdallas.cs.stormrider.topology.impl.add.UpdateLandmarksInformationBolt;
 import edu.utdallas.cs.stormrider.topology.impl.add.UpdateNodesViewBolt;
 import edu.utdallas.cs.stormrider.util.TwitterConstants;
 
@@ -33,19 +33,24 @@ public class TwitterLoaderTopology
 	public static StormTopology constructAddTopology()
 	{
 		TopologyBuilder builder = new TopologyBuilder() ;
-		builder.setSpout( 1, new TwitterLoaderSpout( true, TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_VIEW_CONFIG_FILE ), 1 ) ;
-		builder.setBolt( 2, new TripleLoaderBolt( true, TwitterConstants.HBASE_MODEL_CONFIG_FILE ), TwitterConstants.NUM_OF_TASKS )
-		       .shuffleGrouping( 2 ) ;
-		builder.setBolt( 2, new UpdateNodesViewBolt( true, TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_VIEW_CONFIG_FILE ) )
-			   .shuffleGrouping( 2 ) ;
-		builder.setBolt( 2, new CountUserDegreeBolt() )
-		       .fieldsGrouping( 2, new Fields( "node1" ) ) ;
-		builder.setBolt( 3, new RankUsersBolt( TwitterConstants.HBASE_VIEW_CONFIG_FILE ) )
+		builder.setSpout( "twitter-triples", 
+						  new TwitterLoaderSpout( true, true, TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_VIEW_CONFIG_FILE, TwitterConstants.IRI ), 
+						  TwitterConstants.PARALLELISM_HINT 
+						) ;
+		builder.setBolt( "triple-loader", 
+						 new TripleLoaderBolt( true, TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.IRI, false ), 
+						 TwitterConstants.PARALLELISM_HINT 
+					   ).globalGrouping( "twitter-triples" ) ;
+/*		builder.setBolt( 3, new UpdateNodesViewBolt( true, TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_VIEW_CONFIG_FILE ) )
+			   .shuffleGrouping( 1 ) ;
+		builder.setBolt( 4, new CountUserDegreeBolt() )
+		       .fieldsGrouping( 1, new Fields( "node1" ) ) ;
+		builder.setBolt( 4, new RankUsersBolt( TwitterConstants.HBASE_VIEW_CONFIG_FILE ) )
 		       .fieldsGrouping( 1, new Fields( "node" ) ) ;
-		builder.setBolt( 4, new MergeUsersBolt( TwitterConstants.HBASE_VIEW_CONFIG_FILE ) )
+		builder.setBolt( 5, new MergeUsersBolt( TwitterConstants.HBASE_VIEW_CONFIG_FILE ) )
 		       .globalGrouping( 1 ) ;
-		builder.setBolt( 5, new UpdateLandmarksViewBolt( true, TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_VIEW_CONFIG_FILE ) )
-		       .shuffleGrouping( 1 ) ;
-		return builder.createTopology() ;
+		builder.setBolt( 6, new UpdateLandmarksInformationBolt( true, TwitterConstants.HBASE_MODEL_CONFIG_FILE, TwitterConstants.HBASE_VIEW_CONFIG_FILE ) )
+		       .shuffleGrouping( 5 ) ;
+*/		return builder.createTopology() ;
 	}
 }

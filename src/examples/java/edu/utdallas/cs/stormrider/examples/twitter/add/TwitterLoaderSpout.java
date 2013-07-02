@@ -63,36 +63,44 @@ public class TwitterLoaderSpout implements IRichSpout
 	/** A Logger for this class **/
     private static Logger LOG = Logger.getLogger( TwitterLoaderSpout.class ) ;
     
-    /** A variable that denotes if this spout is distributed **/
-    private boolean isDistributed = false ;
-    
     /** An output collector used to emit tuples from the Twitter stream **/
     private SpoutOutputCollector collector ;
 
     /** The OAuth verified Twitter handle **/
     private Twitter twitter = null ;
+
+    private boolean isReified = false ;
     
-    private Store store = null ;
+    private boolean formatStore = false ;
     
-    private Views views = null ;
+    private String storeConfigFile = null ;
+    
+    private String iri = null ;
+    
+    private String viewsConfigFile = null ;
     
     /** Constructor **/
-    public TwitterLoaderSpout( boolean isReified, String storeConfigFile, String viewsConfigFile ) { this( false, isReified, storeConfigFile, viewsConfigFile ) ; }
+    public TwitterLoaderSpout( boolean isReified, String storeConfigFile, String viewsConfigFile ) 
+    { this( isReified, storeConfigFile, viewsConfigFile, "" ) ; }
 
     /** Constructor **/
-    public TwitterLoaderSpout( boolean isDistributed, boolean isReified, String storeConfigFile, String viewsConfigFile ) 
+    public TwitterLoaderSpout( boolean isReified, String storeConfigFile, String viewsConfigFile, String iri ) 
+    { this( isReified, false, storeConfigFile, viewsConfigFile, iri ) ; }
+
+    /** Constructor **/
+    public TwitterLoaderSpout( boolean isReified, boolean formatStore, String storeConfigFile, String viewsConfigFile, String iri ) 
     { 
-    	this.isDistributed = isDistributed ;
 		twitter = new TwitterFactory().getInstance() ;
 		twitter.setOAuthConsumer( TwitterConstants.CONSUMER_KEY, TwitterConstants.CONSUMER_SECRET ) ;
 		AccessToken atoken = new AccessToken( TwitterConstants.ACCESS_TOKEN, TwitterConstants.ACCESS_TOKEN_SECRET ) ;
 		twitter.setOAuthAccessToken( atoken ) ;
-		this.store = StoreFactory.getJenaHBaseStore( storeConfigFile, isReified ) ;
-		this.views = ViewsFactory.getViews( viewsConfigFile ) ;
+		this.isReified = isReified ;
+		this.formatStore = formatStore ;
+		this.storeConfigFile = storeConfigFile ;
+		this.iri = iri ;
+		this.viewsConfigFile = viewsConfigFile ;
+		if( formatStore ) StoreFactory.getJenaHBaseStore( storeConfigFile, iri, isReified, formatStore ) ;
     }
-    
-    @Override
-    public boolean isDistributed() { return isDistributed ; }
     
 	@SuppressWarnings("rawtypes")
 	@Override
@@ -104,20 +112,18 @@ public class TwitterLoaderSpout implements IRichSpout
     @Override
     public void nextTuple() 
     {
+		Store store = StoreFactory.getJenaHBaseStore( storeConfigFile, iri, isReified, false ) ;
+		Views views = ViewsFactory.getViews( viewsConfigFile ) ;
+
     	Random random = new Random() ;
-    	long numOfUsers = 0L ;
     	try
     	{
-    		while( true )
-    		{
-    			//Increment numOfUsers
-    			numOfUsers++ ;
+   			//Emit user-specific information
+   			int randomUserId = random.nextInt( 400000000 ) ;
+   			emitUserAndTweetInformation( randomUserId ) ;    			
+   			Thread.sleep( 100000 ) ;
     			
-    			//Emit user-specific information
-    			int randomUserId = random.nextInt( 400000000 ) ;
-    			emitUserAndTweetInformation( randomUserId ) ;
-    			
-    			//Emit user-id for updating node-centric view
+/*    			//Emit user-id for updating node-centric view
     			String tupleType = "nv" ;
     			StringBuilder subject = new StringBuilder( "u-" ) ; subject.append( randomUserId ) ;
     			collector.emit( new Values( tupleType, subject.toString(), "", "" ) ) ;
@@ -130,9 +136,15 @@ public class TwitterLoaderSpout implements IRichSpout
        				NodeAndNeighbor nodeAndNeighbor = iterNodesAndNeighbors.next() ;
        				collector.emit( new Values( tupleType, nodeAndNeighbor.getNode(), "", "" ) ) ;
        			}
-    		}
+*/
     	}
-    	catch( Exception e ) { LOG.info( "Error in retrieving user information", e ) ; }
+    	catch( Exception e ) 
+    	{
+    		if( e.toString().contains( "403" ) || e.toString().contains( "404" ) )
+    			LOG.info( "User account suspended or deleted or url not found" ) ;
+    		else
+    			LOG.info( "Error in retrieving user information", e ) ; 
+    	}
     }
     
     @Override
@@ -142,14 +154,17 @@ public class TwitterLoaderSpout implements IRichSpout
     public void fail( Object msgId ) { }
     
     @Override
-    public void declareOutputFields( OutputFieldsDeclarer declarer ) 
-    {
-    	declarer.declare( new Fields( "tupleType" ) ) ;
-        declarer.declare( new Fields( "node1" ) ) ;
-        declarer.declare( new Fields( "node2" ) ) ;
-        declarer.declare( new Fields( "node3" ) ) ;
-    }
+    public void declareOutputFields( OutputFieldsDeclarer declarer ) { declarer.declare( new Fields( "tupleType", "node1", "node2", "node3" ) ) ; }
     
+	@Override
+	public void activate() { }
+
+	@Override
+	public void deactivate() { }
+
+	@Override
+	public Map<String, Object> getComponentConfiguration() { return null ; }
+
     private void emitUserAndTweetInformation( int randomUserId ) throws TwitterException, InterruptedException
     {
     	//Define a triple tuple type, since we emit triples in this method
@@ -160,87 +175,91 @@ public class TwitterLoaderSpout implements IRichSpout
 		
 		StringBuilder subject = new StringBuilder( TwitterConstants.TWITTER_USER_URI ) ; subject.append( user.getId() ) ;
 		
-		StringBuilder userName = new StringBuilder( "lit~" ) ; userName.append( user.getName() ) ; 									
-		if( userName != null && !userName.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), VCARD.NAME.toString(), userName.toString() ) ) ;
+		LOG.info( subject.toString() ) ;
+		
+		StringBuilder userName = new StringBuilder( "lit~" ) ; if( user.getName() != null ) userName.append( user.getName() ) ; 									
+		if( !userName.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), VCARD.NAME.toString(), userName.toString() ) ) ;
 		userName = null ;
 		
-		StringBuilder userProfileImageUrl = new StringBuilder( "res~" ) ; userProfileImageUrl.append( user.getProfileImageURL().toString() ) ; 	
-		if( userProfileImageUrl != null && !userProfileImageUrl.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), VCARD.PHOTO.toString(), userProfileImageUrl.toString() ) ) ;
+		StringBuilder userProfileImageUrl = new StringBuilder( "res~" ) ; if( user.getProfileBackgroundImageURL() != null ) userProfileImageUrl.append( user.getProfileImageURL() ) ; 	
+		if( !userProfileImageUrl.toString().equals( "res~" ) ) collector.emit( new Values( tupleType, subject.toString(), VCARD.PHOTO.toString(), userProfileImageUrl.toString() ) ) ;
 		userProfileImageUrl = null ;
 		
-		StringBuilder userUrl = new StringBuilder( "res~" ) ; userUrl.append( user.getURL().toString() ) ; 							
-		if( userUrl != null && !userUrl.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), FOAF.homepage.toString(), userUrl.toString() ) ) ;
+		StringBuilder userUrl = new StringBuilder( "res~" ) ; if( user.getURL() != null ) userUrl.append( user.getURL() ) ; 							
+		if( !userUrl.toString().equals( "res~" ) ) collector.emit( new Values( tupleType, subject.toString(), FOAF.homepage.toString(), userUrl.toString() ) ) ;
 		userUrl = null ;
 		
-		StringBuilder userTZ = new StringBuilder( "lit~" ) ; userTZ.append( user.getTimeZone() ) ; 									
-		if( userTZ != null && !userTZ.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), VCARD.TZ, userTZ.toString() ) ) ;
+		StringBuilder userTZ = new StringBuilder( "lit~" ) ; if( user.getTimeZone() != null ) userTZ.append( user.getTimeZone() ) ; 									
+		if( !userTZ.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), VCARD.TZ.toString(), userTZ.toString() ) ) ;
 		userTZ = null ;
 		
-		StringBuilder userScreenName = new StringBuilder( "res~" ) ; userScreenName.append( TwitterConstants.TWITTER_USER_URI ) ; userScreenName.append( user.getScreenName() ) ; 						
-		if( userScreenName != null && !userScreenName.equals( "" ) )
+		StringBuilder userScreenName = new StringBuilder( "res~" ) ; if( user.getScreenName() != null ) { userScreenName.append( TwitterConstants.TWITTER_USER_URI ) ; userScreenName.append( user.getScreenName() ) ; }  						
+		if( !userScreenName.toString().equals( "res~" ) )
 		{
 			collector.emit( new Values( tupleType, subject.toString(), TWITTER.Screen_Name.toString(), userScreenName.toString() ) ) ;
 			collector.emit( new Values( tupleType, subject.toString(), OWL.sameAs.toString(), userScreenName.toString() ) ) ;
 		}
 		userScreenName = null ;
 		
-		StringBuilder userLocation = new StringBuilder( "lit~" ) ; userLocation.append( user.getLocation() ) ; 							
-		if( userLocation != null && !userLocation.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Location.toString(), userLocation.toString() ) ) ;
+		StringBuilder userLocation = new StringBuilder( "lit~" ) ; if( user.getLocation() != null ) userLocation.append( user.getLocation() ) ; 							
+		if( !userLocation.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Location.toString(), userLocation.toString() ) ) ;
 		userLocation = null ;
 		
-		StringBuilder userDescription = new StringBuilder( "lit~" ) ; userDescription.append( user.getDescription() ) ; 						
-		if( userDescription != null && !userDescription.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Description.toString(), userDescription.toString() ) ) ;
+		StringBuilder userDescription = new StringBuilder( "lit~" ) ; if( user.getDescription() != null ) userDescription.append( user.getDescription() ) ; 						
+		if( !userDescription.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Description.toString(), userDescription.toString() ) ) ;
 		userDescription = null ;
 		
-		int userFollowersCount = user.getFollowersCount() ;	
-		collector.emit( new Values( tupleType, subject.toString(), TWITTER.Followers_Count.toString(), new StringBuilder( userFollowersCount ).toString() ) ) ;
+		StringBuilder userFollowersCount = new StringBuilder( "lit~" ) ; if( user.getFollowersCount() > 0 ) userFollowersCount.append( user.getFollowersCount() ) ;
+		if( !userFollowersCount.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Followers_Count.toString(), userFollowersCount.toString() ) ) ;
+		userFollowersCount = null ;
 		
-		int userFriendsCount = user.getFriendsCount() ;
-		collector.emit( new Values( tupleType, subject.toString(), TWITTER.Friends_Count.toString(), new StringBuilder( userFriendsCount ).toString() ) ) ;
+		StringBuilder userFriendsCount = new StringBuilder( "lit~" ) ; if( user.getFriendsCount() > 0 ) userFriendsCount.append( user.getFriendsCount() ) ;
+		if( !userFriendsCount.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Friends_Count.toString(), userFriendsCount.toString() ) ) ;
+		userFriendsCount = null ;
 		
 		Date userCreatedAt = user.getCreatedAt() ;
-		collector.emit( new Values( tupleType, subject.toString(), TWITTER.Created_At.toString(), new StringBuilder( userCreatedAt.toString() ).toString() ) ) ;
-		userCreatedAt = null ;
+		StringBuilder userCreated = new StringBuilder( "lit~" ) ; userCreated.append( userCreatedAt.toString() ) ;
+		collector.emit( new Values( tupleType, subject.toString(), TWITTER.Created_At.toString(), userCreated.toString() ) ) ;
+		userCreated = null ; userCreatedAt = null ;
 		
-		int userFavouritesCount = user.getFavouritesCount() ;
-		collector.emit( new Values( tupleType, subject.toString(), TWITTER.Favourites_Count.toString(), new StringBuilder( userFavouritesCount ).toString() ) ) ;
+		StringBuilder userFavouritesCount = new StringBuilder( "lit~" ) ; if( user.getFavouritesCount() > 0 ) userFavouritesCount.append( user.getFavouritesCount() ) ;
+		if( !userFavouritesCount.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Favourites_Count.toString(), userFavouritesCount.toString() ) ) ;
+		userFavouritesCount = null ;
 		
-		int userStatusesCount = user.getStatusesCount() ;
-		collector.emit( new Values( tupleType, subject.toString(), TWITTER.Statuses_Count.toString(), new StringBuilder( userStatusesCount ).toString() ) ) ;
+		StringBuilder userStatusesCount = new StringBuilder( "lit~" ) ; if( user.getStatusesCount() > 0 ) userStatusesCount.append( user.getStatusesCount() ) ;
+		if( !userStatusesCount.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Statuses_Count.toString(), userStatusesCount.toString() ) ) ;
+		userStatusesCount = null ;
 		
-		int userUtcOffset = user.getUtcOffset() ;
-		collector.emit( new Values( tupleType, subject.toString(), TWITTER.UTC_Offset.toString(), new StringBuilder( userUtcOffset ).toString() ) ) ;
+		StringBuilder userUtcOffset = new StringBuilder( "lit~" ) ; if( user.getUtcOffset() > 0 ) userUtcOffset.append( user.getUtcOffset() ) ;
+		if( !userUtcOffset.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.UTC_Offset.toString(), userUtcOffset.toString() ) ) ;
+		userUtcOffset = null ;
 		
-		StringBuilder userProfileBGColor = new StringBuilder( "lit~" ) ; userProfileBGColor.append( user.getProfileBackgroundColor() ) ; 		
-		if( userProfileBGColor != null && !userProfileBGColor.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Profile_Background_Color.toString(), userProfileBGColor.toString() ) ) ;
+		StringBuilder userProfileBGColor = new StringBuilder( "lit~" ) ; if( user.getProfileBackgroundColor() != null ) userProfileBGColor.append( user.getProfileBackgroundColor() ) ; 		
+		if( !userProfileBGColor.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Profile_Background_Color.toString(), userProfileBGColor.toString() ) ) ;
 		userProfileBGColor = null ;
 		
-		StringBuilder userProfileTextColor = new StringBuilder( "lit~" ) ; userProfileTextColor.append( user.getProfileTextColor() ) ; 			
-		if( userProfileTextColor != null && !userProfileTextColor.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Profile_Text_Color.toString(), userProfileTextColor.toString() ) ) ;
+		StringBuilder userProfileTextColor = new StringBuilder( "lit~" ) ; if( user.getProfileTextColor() != null ) userProfileTextColor.append( user.getProfileTextColor() ) ; 			
+		if( !userProfileTextColor.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Profile_Text_Color.toString(), userProfileTextColor.toString() ) ) ;
 		userProfileTextColor = null ;
 		
-		StringBuilder userProfileLinkColor = new StringBuilder( "lit~" ) ; userProfileLinkColor.append( user.getProfileLinkColor() ) ; 			
-		if( userProfileLinkColor != null && !userProfileLinkColor.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Profile_Link_Color.toString(), userProfileLinkColor.toString() ) ) ;
+		StringBuilder userProfileLinkColor = new StringBuilder( "lit~" ) ; if( user.getProfileLinkColor() != null ) userProfileLinkColor.append( user.getProfileLinkColor() ) ; 			
+		if( !userProfileLinkColor.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Profile_Link_Color.toString(), userProfileLinkColor.toString() ) ) ;
 		userProfileLinkColor = null ;
 		
-		StringBuilder userProfileSFillColor = new StringBuilder( "lit~" ) ; userProfileSFillColor.append( user.getProfileSidebarFillColor() ) ; 	
-		if( userProfileSFillColor != null && !userProfileSFillColor.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Profile_Sidebar_Fill_Color.toString(), userProfileSFillColor.toString() ) ) ;
+		StringBuilder userProfileSFillColor = new StringBuilder( "lit~" ) ; if( user.getProfileSidebarFillColor() != null ) userProfileSFillColor.append( user.getProfileSidebarFillColor() ) ; 	
+		if( !userProfileSFillColor.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Profile_Sidebar_Fill_Color.toString(), userProfileSFillColor.toString() ) ) ;
 		userProfileSFillColor = null ;
 		
-		StringBuilder userProfileSBorderColor = new StringBuilder( "lit~" ) ; userProfileSBorderColor.append( user.getProfileSidebarBorderColor() ) ;
-		if( userProfileSBorderColor != null && !userProfileSBorderColor.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Profile_Sidebar_Border_Color.toString(), userProfileSBorderColor.toString() ) ) ;
+		StringBuilder userProfileSBorderColor = new StringBuilder( "lit~" ) ; if( user.getProfileSidebarBorderColor() != null ) userProfileSBorderColor.append( user.getProfileSidebarBorderColor() ) ;
+		if( !userProfileSBorderColor.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Profile_Sidebar_Border_Color.toString(), userProfileSBorderColor.toString() ) ) ;
 		userProfileSBorderColor = null ;
 		
-		StringBuilder userProfileBGImageUrl = new StringBuilder( "lit~" ) ; userProfileBGImageUrl.append( user.getProfileBackgroundImageUrl() ) ; 	
-		if( userProfileBGImageUrl != null && !userProfileBGImageUrl.equals( "" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Profile_Background_Image_Url.toString(), userProfileBGImageUrl.toString() ) ) ;
-		userProfileBGImageUrl = null ;
-		
-		StringBuilder userLang = new StringBuilder( "lit~" ) ; userLang.append( user.getLang() ) ;								
-		if( userLang != null && !userLang.equals( "" ) )collector.emit( new Values( tupleType, subject.toString(), TWITTER.Lang.toString(), userLang.toString() ) ) ;
+		StringBuilder userLang = new StringBuilder( "lit~" ) ; if( user.getLang() != null ) userLang.append( user.getLang() ) ;								
+		if( !userLang.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Lang.toString(), userLang.toString() ) ) ;
 		userLang = null ;
 		
-		int userListedCount = user.getListedCount() ;
-		collector.emit( new Values( tupleType, subject.toString(), TWITTER.Listed_Count.toString(), new StringBuilder( userListedCount ).toString() ) ) ; 
+		StringBuilder userListedCount = new StringBuilder( "lit~" ) ; if( user.getListedCount() > 0 ) userListedCount.append( user.getListedCount() ) ;								
+		if( !userListedCount.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, subject.toString(), TWITTER.Listed_Count.toString(), userListedCount.toString() ) ) ; 
 		
 		boolean isProfileBGTiled = user.isProfileBackgroundTiled() ;
 		collector.emit( new Values( tupleType, subject.toString(), TWITTER.Is_Profile_Background_Tiled.toString(), "" + isProfileBGTiled ) ) ;
@@ -272,6 +291,7 @@ public class TwitterLoaderSpout implements IRichSpout
 		if( !isProtected )
 		{
 			//Get user-follower information
+			Thread.sleep( TwitterConstants.TIME_DELAY_BETWEEN_REQUESTS ) ;
 			long cursor = -1 ; IDs ids = twitter.getFollowersIDs( randomUserId, cursor ) ; 
 			while( ids.getNextCursor() != 0 )
 			{
@@ -290,6 +310,7 @@ public class TwitterLoaderSpout implements IRichSpout
 			cursor = -1 ; ids = null ; ids = twitter.getFriendsIDs( randomUserId, cursor ) ;
 
 			//Get user-friend information
+			Thread.sleep( TwitterConstants.TIME_DELAY_BETWEEN_REQUESTS ) ;
 			while( ids.getNextCursor() != 0 )
 			{
 				Thread.sleep( TwitterConstants.TIME_DELAY_BETWEEN_REQUESTS ) ;
@@ -308,6 +329,7 @@ public class TwitterLoaderSpout implements IRichSpout
 		}
 		
 		//Get user-tweet information
+		Thread.sleep( TwitterConstants.TIME_DELAY_BETWEEN_REQUESTS ) ;
 		int page = 1 ; Paging paging = new Paging( page, TwitterConstants.STATUSES_PER_PAGE ) ;
 		List<Status> tweets = twitter.getUserTimeline( randomUserId, paging ) ; 
 		while( !tweets.isEmpty() )
@@ -316,20 +338,20 @@ public class TwitterLoaderSpout implements IRichSpout
 			{
 				StringBuilder tweet = new StringBuilder() ; tweet.append( TwitterConstants.TWITTER_TWEET_URI ) ; tweet.append( status.getId() ) ;
 				StringBuilder tweetAsObj = new StringBuilder( "res~" ) ; tweetAsObj.append( tweet.toString() ) ;
-				collector.emit( new Values( tupleType, subject.toString(), TWITTER.Has_Tweet.toString(), tweetAsObj ) ) ;
+				collector.emit( new Values( tupleType, subject.toString(), TWITTER.Has_Tweet.toString(), tweetAsObj.toString() ) ) ;
 				
 				Date statusCreatedAt = status.getCreatedAt() ;		
 				collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Created_At.toString(), statusCreatedAt.toString() ) ) ;
 				
-				StringBuilder statusText = new StringBuilder( "lit~" ) ; statusText.append( status.getText() ) ; 							
-				if( statusText != null && !statusText.equals( "" ) ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Text.toString(), statusText.toString() ) ) ;
+				StringBuilder statusText = new StringBuilder( "lit~" ) ; if( status.getText() != null ) statusText.append( status.getText() ) ; 							
+				if( !statusText.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Text.toString(), statusText.toString() ) ) ;
 				statusText = null ;
 				
-				StringBuilder statusSource = new StringBuilder( "lit~" ) ; statusSource.append( status.getSource() ) ; 						
-				if( statusSource != null && !statusSource.equals( "" ) ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Source.toString(), statusSource.toString() ) ) ;
+				StringBuilder statusSource = new StringBuilder( "lit~" ) ; if( status.getSource() != null ) statusSource.append( status.getSource() ) ; 						
+				if( !statusSource.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Source.toString(), statusSource.toString() ) ) ;
 				statusSource = null ;
 				
-				StringBuilder statusReplyStatusId = new StringBuilder( "res~" ) ; statusReplyStatusId.append( TwitterConstants.TWITTER_USER_URI ) ; statusReplyStatusId.append( status.getInReplyToStatusId() ) ; 		
+				StringBuilder statusReplyStatusId = new StringBuilder( "res~" ) ; statusReplyStatusId.append( TwitterConstants.TWITTER_TWEET_URI ) ; statusReplyStatusId.append( status.getInReplyToStatusId() ) ; 		
 				if( status.getInReplyToStatusId() > 0 ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_In_Reply_To_Status_Id.toString(), "" + statusReplyStatusId.toString() ) ) ;
 				statusReplyStatusId = null ;
 				
@@ -337,39 +359,41 @@ public class TwitterLoaderSpout implements IRichSpout
 				if( status.getInReplyToUserId() > 0 ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_In_Reply_To_User_Id.toString(), "" + statusReplyUserId.toString() ) ) ;
 				statusReplyUserId = null ;
 				
-				StringBuilder statusReplyScreenName = new StringBuilder( "res~" ) ; statusReplyScreenName.append( TwitterConstants.TWITTER_USER_URI ) ; statusReplyScreenName.append( status.getInReplyToScreenName() ) ;	
-				if( statusReplyScreenName != null && !statusReplyScreenName.equals( "" ) ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_In_Reply_To_Screen_Name.toString(), statusReplyScreenName.toString() ) ) ;
+				StringBuilder statusReplyScreenName = new StringBuilder( "res~" ) ; if( status.getInReplyToScreenName() != null ) { statusReplyScreenName.append( TwitterConstants.TWITTER_USER_URI ) ; statusReplyScreenName.append( status.getInReplyToScreenName() ) ; }	
+				if( !statusReplyScreenName.toString().equals( "res~" ) ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_In_Reply_To_Screen_Name.toString(), statusReplyScreenName.toString() ) ) ;
 				statusReplyScreenName = null ;
 				
-				long statusRetweetCount = status.getRetweetCount() ; 				
-				if( statusRetweetCount > 0 ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Retweet_Count.toString(), "" + statusRetweetCount ) ) ;
+				StringBuilder statusRetweetCount = new StringBuilder( "lit~" ) ; if( status.getRetweetCount() > 0 ) statusRetweetCount.append( status.getRetweetCount() ) ; 						
+				if( !statusRetweetCount.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Retweet_Count.toString(), statusRetweetCount.toString() ) ) ;
 				
-				StringBuilder statusGeoLocation = new StringBuilder( "lit~" ) ; statusGeoLocation.append( status.getGeoLocation().toString() ) ; 	
-				if( statusGeoLocation != null && !statusGeoLocation.equals( "" ) ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Geo.toString(), statusGeoLocation.toString() ) ) ;
+				StringBuilder statusGeoLocation = new StringBuilder( "lit~" ) ; if( status.getGeoLocation() != null ) statusGeoLocation.append( status.getGeoLocation().toString() ) ; 	
+				if( !statusGeoLocation.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Geo.toString(), statusGeoLocation.toString() ) ) ;
 				statusGeoLocation = null ;
 				
-				StringBuilder statusPlace = new StringBuilder( "lit~" ) ; statusPlace.append( status.getPlace().toString() ) ;				
-				if( statusPlace != null && !status.equals( "" ) ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Place.toString(), statusPlace.toString() ) ) ;
+				StringBuilder statusPlace = new StringBuilder( "lit~" ) ; if( status.getPlace() != null ) statusPlace.append( status.getPlace().toString() ) ;				
+				if( !statusPlace.toString().equals( "lit~" ) ) collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Place.toString(), statusPlace.toString() ) ) ;
 				statusPlace = null ;
 				
 				long[] statusContributors = status.getContributors() ; 
 				if( statusContributors != null && statusContributors.length > 0 ) 
+				{
 					for( long id : statusContributors ) 
 					{
 						StringBuilder contributor = new StringBuilder( "res~" ) ; contributor.append( TwitterConstants.TWITTER_USER_URI ) ; contributor.append( id ) ;
 						collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Tweet_Contributors.toString(), contributor.toString() ) ) ;
 						contributor = null ;
 					}
-				
+				}
 				boolean isTruncated = status.isTruncated() ;
 				collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Is_Truncated.toString(), "" + isTruncated ) ) ;
 				
 				boolean isFavourited = status.isFavorited() ;
-				collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Is_Favorited, "" + isFavourited ) ) ;
+				collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Is_Favorited.toString(), "" + isFavourited ) ) ;
 				
 				boolean isRetweeted = status.isRetweet() ;
 				collector.emit( new Values( tupleType, tweet.toString(), TWITTER.Is_Retweeted.toString(), "" + isRetweeted ) ) ;
 			}
+			Thread.sleep( TwitterConstants.TIME_DELAY_BETWEEN_REQUESTS ) ;
 			page++ ; paging = null ; paging = new Paging( page, TwitterConstants.STATUSES_PER_PAGE ) ;
 			tweets = twitter.getUserTimeline( randomUserId, paging ) ;
 		}
