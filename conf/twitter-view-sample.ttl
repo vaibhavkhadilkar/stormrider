@@ -1,0 +1,16 @@
+@prefix stormrider:   <http://cs.utdallas.edu/semanticweb/stormrider/2012/stormrider#> .
+@prefix rdfs:	 	  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf:     	  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix ja:      	  <http://jena.hpl.hp.com/2005/11/Assembler#> .
+
+# StormRider - Sample view description for Twitter
+
+<#View> rdf:type stormrider:View ;
+    stormrider:storage		"hbase" ;
+    stormrider:name     	"http://cs.utdallas.edu/semanticweb/StormRider/vocabs/twitter/0.1#Has_Friend" ;
+    stormrider:connection 	<#conn> ;
+    .
+
+<#conn> rdf:type stormrider:HBaseConnection ;
+    stormrider:configuration	"=== path to hbase-site.xml ===" ;
+    .
